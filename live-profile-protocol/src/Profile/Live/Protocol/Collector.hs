@@ -130,7 +130,7 @@ data CollectorOutput =
   deriving (Show, Generic)
 
 -- | Perform one step of converting the profiler protocol into events
-stepMessageCollector :: (MonadFail m, MonadState MessageCollector m, MonadWriter LogStr m)
+stepMessageCollector :: (MonadState MessageCollector m, MonadWriter LogStr m)
   => UTCTime -- ^ Current time
   -> ProfileMsg -- ^ New message arrived
   -> m (S.Seq CollectorOutput) -- ^ Result of decoded events
@@ -154,7 +154,8 @@ stepMessageCollector curTime  msg = do
       let eventRes = CollectorEvents $ fromMaybe mempty mseq
       if headerCollected
         then do
-          Just header <- gets collectorCachedHeader
+          mheader <- gets collectorCachedHeader
+          let header = fromMaybe (error "step message collector") mheader
           return $ CollectorHeader header S.<| S.singleton eventRes
         else return $ S.singleton eventRes
     ProfileState payload -> do
