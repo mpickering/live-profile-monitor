@@ -3,10 +3,10 @@ module Profile.Live.Options(
   -- * Server side
     LiveProfileOpts(..)
   , defaultLiveProfileOpts
-  ) where 
+  ) where
 
 import System.Socket.Family.Inet6
-import Data.Word 
+import Data.Word
 
 -- | Options of live profile monitor
 data LiveProfileOpts = LiveProfileOpts {
@@ -18,13 +18,13 @@ data LiveProfileOpts = LiveProfileOpts {
   -- | Port that is used to listen for incoming connections.
 , eventLogListenPort :: !Inet6Port
   -- | How many items in internal channels we hold. If there are additional items, the system
-  -- will drop the new items to prevent out of memory issue. Nothing means no restriction on 
+  -- will drop the new items to prevent out of memory issue. Nothing means no restriction on
   -- the channels size.
 , eventChannelMaximumSize :: !(Maybe Word)
   -- | If the datagram transport is used (UDP) the option bounds maximum size of single message.
   -- Set 'Nothing' to never split payload into several messages.
 , eventMessageMaxSize :: !(Maybe Word)
-} deriving Show 
+} deriving Show
 
 -- | Default options of live profile
 defaultLiveProfileOpts :: LiveProfileOpts

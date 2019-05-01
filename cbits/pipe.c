@@ -1,6 +1,6 @@
 #include "Rts.h"
 
-#ifdef mingw32_HOST_OS // Dependencies for Windows 
+#ifdef mingw32_HOST_OS // Dependencies for Windows
 
 #include <windows.h>
 #include <tchar.h>
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#else // Dependencies for POSIX 
+#else // Dependencies for POSIX
 
 #include <stdio.h>
 #include <pthread.h>
@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#endif 
+#endif
 
 // Haskell callback that we call when some data from pipe is read
 typedef void (*haskellCallback)(unsigned char *, int);
@@ -43,7 +43,7 @@ DWORD WINAPI profilerReaderThread( LPVOID lpParam );
 
 #define DBG(x) fprintf(stdout, x "\n"); fflush(stdout)
 
-void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb) 
+void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb)
 {
     if (!inited) {
         pipeName = strdup(pName);
@@ -51,16 +51,16 @@ void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb)
         bufferSize = bs;
         terminate = 0;
 
-        // spawn thread 
-        profilerPid = CreateThread( 
+        // spawn thread
+        profilerPid = CreateThread(
             NULL,                   // default security attributes
-            0,                      // use default stack size  
+            0,                      // use default stack size
             profilerReaderThread,   // thread function name
-            (LPVOID)pipeName,       // argument to thread function 
-            0,                      // use default creation flags 
-            NULL);                  // doesn't return the thread identifier 
+            (LPVOID)pipeName,       // argument to thread function
+            0,                      // use default creation flags
+            NULL);                  // doesn't return the thread identifier
 
-        if (profilerPid == NULL) 
+        if (profilerPid == NULL)
         {
            _tprintf(TEXT("Create profiler reader thread is failed\n"));
            ExitProcess(2);
@@ -70,7 +70,7 @@ void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb)
     }
 }
 
-void stopProfilerPipe(void) 
+void stopProfilerPipe(void)
 {
     if (inited) {
         terminate = 1;
@@ -80,7 +80,7 @@ void stopProfilerPipe(void)
         CloseHandle(profilerPid);
         inited = 0;
     }
-} 
+}
 
 
 static void PrintLastErrorAsString(void)
@@ -116,44 +116,44 @@ DWORD WINAPI profilerReaderThread( LPVOID lpParam )
 
     _tprintf(TEXT("Pipe: Opening the pipe for reading\n"));
     pipeName = (char *)lpParam;
-    hPipe = CreateNamedPipe( 
-        pipeName,                 // pipe name 
-        PIPE_ACCESS_DUPLEX,       // write access 
-        PIPE_TYPE_MESSAGE |       // message type pipe 
-        PIPE_READMODE_MESSAGE |   // message-read mode 
-        PIPE_WAIT,                // blocking mode 
-        PIPE_UNLIMITED_INSTANCES, // max. instances  
-        bufferSize,               // output buffer size 
-        bufferSize,               // input buffer size 
-        0,                        // client time-out 
-        NULL);                    // default security attribute 
+    hPipe = CreateNamedPipe(
+        pipeName,                 // pipe name
+        PIPE_ACCESS_DUPLEX,       // write access
+        PIPE_TYPE_MESSAGE |       // message type pipe
+        PIPE_READMODE_MESSAGE |   // message-read mode
+        PIPE_WAIT,                // blocking mode
+        PIPE_UNLIMITED_INSTANCES, // max. instances
+        bufferSize,               // output buffer size
+        bufferSize,               // input buffer size
+        0,                        // client time-out
+        NULL);                    // default security attribute
 
-    if (hPipe == INVALID_HANDLE_VALUE) 
+    if (hPipe == INVALID_HANDLE_VALUE)
     {
         _tprintf(TEXT("Pipe: CreateNamedPipe failed for leech pipe, GLE=%d.\n")
-            , GetLastError()); 
+            , GetLastError());
         PrintLastErrorAsString();
         return -1;
     }
 
-    // Read from the pipe. 
+    // Read from the pipe.
     while(terminate == 0) {
-        do 
-        { 
-            fSuccess = ReadFile( 
-                hPipe,       // pipe handle 
-                buf,         // buffer to receive reply 
-                bufferSize,  // size of buffer 
-                &readCount,  // number of bytes read 
-                NULL);       // not overlapped 
+        do
+        {
+            fSuccess = ReadFile(
+                hPipe,       // pipe handle
+                buf,         // buffer to receive reply
+                bufferSize,  // size of buffer
+                &readCount,  // number of bytes read
+                NULL);       // not overlapped
 
             if ( !fSuccess && GetLastError() != ERROR_MORE_DATA )
-                break; 
+                break;
 
             if (readCount > 0 && callback != NULL) {
                 callback(buf, readCount);
             }
-        } while (!fSuccess);  // repeat loop if ERROR_MORE_DATA 
+        } while (!fSuccess);  // repeat loop if ERROR_MORE_DATA
 
         if (!fSuccess && GetLastError() != ERROR_PIPE_LISTENING)
         {
@@ -179,7 +179,7 @@ static StgBool terminate = 0;
 
 static void *profilerReaderThread(void *params);
 
-void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb) 
+void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb)
 {
     if (!inited) {
         pipeName = strdup(pName);
@@ -200,7 +200,7 @@ void startProfilerPipe(char *pName, StgWord64 bs, haskellCallback cb)
     }
 }
 
-void stopProfilerPipe(void) 
+void stopProfilerPipe(void)
 {
     if (inited) {
         terminate = 1;
@@ -221,7 +221,7 @@ static void cleanReaderBuffer(void *buff) {
     free(buff);
 }
 
-void *profilerReaderThread(void *params) 
+void *profilerReaderThread(void *params)
 {
     char *pipeName;
     int fd;

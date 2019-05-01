@@ -1,11 +1,11 @@
-module Main(main) where 
+module Main(main) where
 
 import Control.Exception (bracket)
 import Options.Applicative
 import System.Log.FastLogger
 import System.Process
 
-import Profile.Live 
+import Profile.Live
 import Profile.Live.Options
 
 optionsParser :: Parser (String, LiveProfileOpts)
@@ -15,7 +15,7 @@ optionsParser = (,)
     <> help "How to call profiled application"
     )
   <*> profOpts
-  where 
+  where
   profOpts = LiveProfileOpts
     <$> option auto (
          long "chunk"
@@ -42,8 +42,8 @@ optionsParser = (,)
       ))
 
   defOpts = defaultLiveProfileOpts
-  
-  defPort :: Word 
+
+  defPort :: Word
   defPort = 8242
 
 profile :: String -> LiveProfileOpts -> IO ()

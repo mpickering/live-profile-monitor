@@ -14,7 +14,7 @@
 --
 ------------------------------------------------------------------------------
 module Profile.Live.Protocol.State.Capability(
-  -- * Capability set state 
+  -- * Capability set state
     CapsetState(..)
   , isCapsetEvent
   , CapsetsState
@@ -26,28 +26,26 @@ module Profile.Live.Protocol.State.Capability(
   , CapsState
   , newCapsState
   , updateCapsState
-  ) where 
+  ) where
 
-import Control.DeepSeq 
-import Data.Binary.Serialise.CBOR 
-import Data.Word 
-import GHC.Generics 
-import GHC.RTS.Events 
+import Control.DeepSeq
+import Data.Binary.Serialise.CBOR
+import Data.Word
+import GHC.Generics
+import GHC.RTS.Events
 
-import qualified Data.HashMap.Strict as H 
+import qualified Data.HashMap.Strict as H
 import qualified Data.Sequence as S
 
 -- Just because it is not reexported from ghc-events
-type Capset = Word32
-type PID = Word32
 
 deriving instance Generic CapsetType
-instance NFData CapsetType 
-instance Serialise CapsetType 
+instance NFData CapsetType
+instance Serialise CapsetType
 
 -- | The full state of single capset
 data CapsetState = CapsetState {
-  capsetStateId :: {-# UNPACK #-} !Capset -- ^ Unique id 
+  capsetStateId :: {-# UNPACK #-} !Capset -- ^ Unique id
 , capsetStateType :: !CapsetType -- ^ Type of the capset
 , capsetStateCaps :: !(S.Seq Int) -- ^ Assigned caps
 , capsetStateLastTimestamp :: {-# UNPACK #-} !Timestamp -- ^ Last change timestamp
@@ -56,13 +54,13 @@ data CapsetState = CapsetState {
 , capsetStateArgs :: ![String] -- ^ Program arguments
 , capsetStateEnvs :: ![String] -- ^ Program environment
 , capsetStateOsPid ::  !(Maybe PID) -- ^ OS process id assigned to capset
-, capsetStateOsParentPid ::  !(Maybe PID) -- ^ OS process id of parent process 
+, capsetStateOsParentPid ::  !(Maybe PID) -- ^ OS process id of parent process
 , capsetStateWallSecs :: {-# UNPACK #-} !Word64 -- ^ Value of capset wall clock
 , capsetStateWallNsecs :: {-# UNPACK #-} !Word32 -- ^ Value of capset wall clock
 , capsetStateHeapAllocated :: {-# UNPACK #-} !Word64 -- ^ Last info about allocated bytes
 , capsetStateHeapSize :: {-# UNPACK #-} !Word64 -- ^ Last info about heap size
 , capsetStateHeapLive :: {-# UNPACK #-} !Word64 -- ^ Last info about heap live size
-, capsetStateHeapGens :: {-# UNPACK #-} !Int -- ^ Number of generations 
+, capsetStateHeapGens :: {-# UNPACK #-} !Int -- ^ Number of generations
 , capsetStateHeapMaxSize :: {-# UNPACK #-} !Word64 -- ^ Last info about heap maximum size
 , capsetStateHeapAllocAreaSize :: {-# UNPACK #-} !Word64 -- ^ Last info about heap alloc area size
 , capsetStateHeapMBlockSize :: {-# UNPACK #-} !Word64 -- ^ Last info about mblock(?) size
@@ -72,7 +70,7 @@ data CapsetState = CapsetState {
 , capsetStateGCSlop :: {-# UNPACK #-} !Word64 -- ^ Last GC slop value
 , capsetStateGCFrag :: {-# UNPACK #-} !Word64 -- ^ Last GC frag value
 , capsetStateGCParThreads :: {-# UNPACK #-} !Int -- ^ Last GC count of parallel threads
-, capsetStateGCParMaxCopied :: {-# UNPACK #-} !Word64 -- ^ Last GC parallel max copied value 
+, capsetStateGCParMaxCopied :: {-# UNPACK #-} !Word64 -- ^ Last GC parallel max copied value
 , capsetStateGCParTotCopied :: {-# UNPACK #-} !Word64 -- ^ Last GC parallel total copied value
 } deriving (Generic, Show)
 
@@ -80,13 +78,13 @@ instance NFData CapsetState
 instance Serialise CapsetState
 
 -- | Create new record about capset
-newCapsetState :: Capset -> CapsetType -> Timestamp -> CapsetState 
+newCapsetState :: Capset -> CapsetType -> Timestamp -> CapsetState
 newCapsetState i ty t = CapsetState {
-    capsetStateId = i 
-  , capsetStateType = ty 
-  , capsetStateCaps = mempty 
-  , capsetStateLastTimestamp = t 
-  , capsetStateTimestamp = t 
+    capsetStateId = i
+  , capsetStateType = ty
+  , capsetStateCaps = mempty
+  , capsetStateLastTimestamp = t
+  , capsetStateTimestamp = t
   , capsetStateRtsIdent = ""
   , capsetStateArgs = []
   , capsetStateEnvs = []
@@ -112,8 +110,8 @@ newCapsetState i ty t = CapsetState {
   }
 
 -- | Return 'True' if given event is related to a capset
-isCapsetEvent :: Event -> Bool 
-isCapsetEvent e = case evSpec e of 
+isCapsetEvent :: Event -> Bool
+isCapsetEvent e = case evSpec e of
   GCStatsGHC{} -> True
   HeapAllocated{} -> True
   HeapSize{} -> True
@@ -129,11 +127,11 @@ isCapsetEvent e = case evSpec e of
   OsProcessPid{} -> True
   OsProcessParentPid{} -> True
   WallClockTime{} -> True
-  _ -> False 
+  _ -> False
 
 -- | Extract capset id from event
-getCapsetId :: Event -> Maybe Capset  
-getCapsetId e = case evSpec e of 
+getCapsetId :: Event -> Maybe Capset
+getCapsetId e = case evSpec e of
   GCStatsGHC{..} -> Just heapCapset
   HeapAllocated{..} -> Just heapCapset
   HeapSize{..} -> Just heapCapset
@@ -149,17 +147,17 @@ getCapsetId e = case evSpec e of
   OsProcessPid{..} -> Just capset
   OsProcessParentPid{..} -> Just capset
   WallClockTime{..} -> Just capset
-  _ -> Nothing 
+  _ -> Nothing
 
 -- | Update capset state with event
 updateCapsetState :: Event -> CapsetState -> CapsetState
-updateCapsetState e cs = case evSpec e of 
+updateCapsetState e cs = case evSpec e of
   GCStatsGHC{..} -> cs {
-      capsetStateGCTimestamp = Just $ evTime e 
-    , capsetStateHeapGens = gen 
-    , capsetStateGCCopied = copied 
-    , capsetStateGCSlop = slop 
-    , capsetStateGCFrag = frag 
+      capsetStateGCTimestamp = Just $ evTime e
+    , capsetStateHeapGens = gen
+    , capsetStateGCCopied = copied
+    , capsetStateGCSlop = slop
+    , capsetStateGCFrag = frag
     , capsetStateGCParThreads = parNThreads
     , capsetStateGCParMaxCopied = parMaxCopied
     , capsetStateGCParTotCopied = parTotCopied
@@ -174,31 +172,31 @@ updateCapsetState e cs = case evSpec e of
       capsetStateHeapLive = liveBytes
     }
   HeapInfoGHC{..} -> cs {
-      capsetStateHeapGens = gens 
-    , capsetStateHeapMaxSize = maxHeapSize 
-    , capsetStateHeapAllocAreaSize = allocAreaSize 
+      capsetStateHeapGens = gens
+    , capsetStateHeapMaxSize = maxHeapSize
+    , capsetStateHeapAllocAreaSize = allocAreaSize
     , capsetStateHeapMBlockSize = mblockSize
-    , capsetStateHeapBlockSize = blockSize 
+    , capsetStateHeapBlockSize = blockSize
     }
   CapsetAssignCap{..} -> cs {
       capsetStateCaps = capsetStateCaps cs S.|> cap
-    , capsetStateLastTimestamp = evTime e 
+    , capsetStateLastTimestamp = evTime e
     }
   CapsetRemoveCap{..} -> cs {
-      capsetStateCaps = S.filter (/= cap) $ capsetStateCaps cs 
+      capsetStateCaps = S.filter (/= cap) $ capsetStateCaps cs
     , capsetStateLastTimestamp = evTime e
     }
   RtsIdentifier{..} -> cs {
       capsetStateRtsIdent = rtsident
     }
   ProgramArgs{..} -> cs {
-      capsetStateArgs = args 
+      capsetStateArgs = args
     }
   ProgramEnv{..} -> cs {
-      capsetStateEnvs = env 
+      capsetStateEnvs = env
     }
   OsProcessPid{..} -> cs {
-      capsetStateOsPid = Just pid 
+      capsetStateOsPid = Just pid
     }
   OsProcessParentPid{..} -> cs {
       capsetStateOsParentPid = Just ppid
@@ -206,24 +204,24 @@ updateCapsetState e cs = case evSpec e of
   WallClockTime{..} -> cs {
       capsetStateWallSecs = sec
     , capsetStateWallNsecs = nsec
-    }  
-  _ -> cs 
+    }
+  _ -> cs
 
 -- | Accumulative state of all capsets
-type CapsetsState = H.HashMap Capset CapsetState 
+type CapsetsState = H.HashMap Capset CapsetState
 
 -- | New empty capsets state
-newCapsetsState :: CapsetsState 
-newCapsetsState = H.empty 
+newCapsetsState :: CapsetsState
+newCapsetsState = H.empty
 
 -- | Update capsets state with new event
-updateCapsetsState :: Event -> CapsetsState -> CapsetsState 
-updateCapsetsState e csss = case getCapsetId e of 
-    Nothing -> csss 
-    Just i -> case evSpec e of 
+updateCapsetsState :: Event -> CapsetsState -> CapsetsState
+updateCapsetsState e csss = case getCapsetId e of
+    Nothing -> csss
+    Just i -> case evSpec e of
       CapsetCreate{..} -> H.insert i (newCapsetState i capsetType (evTime e)) csss
-      CapsetDelete{} -> H.delete i csss 
-      _ -> H.adjust (updateCapsetState e) i csss 
+      CapsetDelete{} -> H.delete i csss
+      _ -> H.adjust (updateCapsetState e) i csss
 
 -- | The full state of single capability
 data CapState = CapState {
@@ -236,18 +234,18 @@ data CapState = CapState {
 instance NFData CapState
 instance Serialise CapState
 
--- | Create new state record 
-newCapState :: Int -> Timestamp -> CapState 
+-- | Create new state record
+newCapState :: Int -> Timestamp -> CapState
 newCapState i t = CapState {
-    capStateId = i 
-  , capStateDisabled = False 
+    capStateId = i
+  , capStateDisabled = False
   , capStateLastTimestamp = t
   , capStateTimestamp = t
   }
 
 -- | Return 'True' if the event is related to some cap
-isCapEvent :: Event -> Bool 
-isCapEvent e = case evSpec e of 
+isCapEvent :: Event -> Bool
+isCapEvent e = case evSpec e of
   CapCreate{} -> True
   CapDelete{} -> True
   CapDisable{} -> True
@@ -255,35 +253,35 @@ isCapEvent e = case evSpec e of
   _ -> False
 
 -- | Extract capability id from event
-capIdFromEvent :: Event -> Maybe Int 
-capIdFromEvent e = case evSpec e of 
+capIdFromEvent :: Event -> Maybe Int
+capIdFromEvent e = case evSpec e of
   CapCreate{..} -> Just cap
   CapDelete{..} -> Just cap
   CapDisable{..} -> Just cap
   CapEnable{..} -> Just cap
   _ -> Nothing
 
--- | Update a capset state with given event, doesn't check if the event 
+-- | Update a capset state with given event, doesn't check if the event
 -- actually about the capability of cap state.
-updateCapState :: Event -> CapState -> CapState 
-updateCapState e cs = case evSpec e of 
+updateCapState :: Event -> CapState -> CapState
+updateCapState e cs = case evSpec e of
   CapDisable{} -> cs' { capStateDisabled = True }
   CapEnable{} -> cs' { capStateDisabled = False }
-  _ -> cs 
+  _ -> cs
   where cs' = cs { capStateLastTimestamp = evTime e }
 
 -- | Holds state of all caps
-type CapsState = H.HashMap Int CapState 
+type CapsState = H.HashMap Int CapState
 
 -- | Empty state
-newCapsState :: CapsState 
-newCapsState = H.empty 
+newCapsState :: CapsState
+newCapsState = H.empty
 
 -- | Update state of all caps with event
-updateCapsState :: Event -> CapsState -> CapsState 
-updateCapsState e css = case capIdFromEvent e of 
-  Nothing -> css 
-  Just capi -> case evSpec e of 
+updateCapsState :: Event -> CapsState -> CapsState
+updateCapsState e css = case capIdFromEvent e of
+  Nothing -> css
+  Just capi -> case evSpec e of
     CapCreate{} -> H.insert capi (newCapState capi (evTime e)) css
     CapDelete{} -> H.delete capi css
     _ -> H.adjust (updateCapState e) capi css

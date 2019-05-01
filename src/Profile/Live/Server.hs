@@ -1,43 +1,43 @@
 module Profile.Live.Server(
   -- * Server side
     startLiveServer
-  ) where 
+  ) where
 
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TBMChan
 import Control.DeepSeq
-import Control.Exception 
-import Control.Monad 
+import Control.Exception
+import Control.Monad
 import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict (runWriter)
-import Data.IORef 
+import Data.IORef
 import Data.Maybe
-import Data.Monoid 
+import Data.Monoid
 import GHC.RTS.Events hiding (ThreadId)
 import System.Log.FastLogger
 
-import Profile.Live.Options 
-import Profile.Live.State 
+import Profile.Live.Options
+import Profile.Live.State
 
-import System.Socket 
+import System.Socket
 import System.Socket.Family.Inet6
 import System.Socket.Protocol.TCP
 import System.Socket.Type.Stream
 
-import Profile.Live.Protocol.Message 
+import Profile.Live.Protocol.Message
 import Profile.Live.Protocol.Splitter
-import Profile.Live.Protocol.State 
+import Profile.Live.Protocol.State
 import Profile.Live.Protocol.Utils
-import Profile.Live.Termination 
+import Profile.Live.Termination
 
-import qualified Data.Sequence as S 
+import qualified Data.Sequence as S
 
 -- | Socket type that is used for the server
 type ServerSocket = Socket Inet6 Stream TCP
 
--- | Starts TCP server that listens on particular port which profiling 
--- clients connect with. 
+-- | Starts TCP server that listens on particular port which profiling
+-- clients connect with.
 startLiveServer :: LoggerSet -- ^ Monitor logger
   -> LiveProfileOpts -- ^ Options of the monitor
   -> TerminationPair  -- ^ Termination protocol
@@ -46,13 +46,13 @@ startLiveServer :: LoggerSet -- ^ Monitor logger
   -> EventChan -- ^ Channel for events (input)
   -> IORef EventlogState -- ^ Ref with relevant state of eventlog
   -> IO ThreadId
-startLiveServer logger LiveProfileOpts{..} term pausedRef eventTypeChan eventChan stateRef = forkIO $ printExceptions "Live server" $ do 
+startLiveServer logger LiveProfileOpts{..} term pausedRef eventTypeChan eventChan stateRef = forkIO $ printExceptions "Live server" $ do
   labelCurrentThread "Server"
   logProf logger "Server thread started"
   withSocket $ \s -> untilTerminatedPair term $ acceptAndHandle s
   logProf logger "Server thread terminated"
   where
-  withSocket m = bracket (socket :: IO ServerSocket) close $ \s -> do 
+  withSocket m = bracket (socket :: IO ServerSocket) close $ \s -> do
     setSocketOption s (ReuseAddress True)
     setSocketOption s (V6Only False)
     bind s (SocketAddressInet6 inet6Any eventLogListenPort 0 0)
@@ -62,26 +62,26 @@ startLiveServer logger LiveProfileOpts{..} term pausedRef eventTypeChan eventCha
 
   acceptAndHandle :: ServerSocket -> IO ()
   acceptAndHandle s = goHeader mempty
-    where 
+    where
     -- first collect header to pass to sender threads
-    goHeader ets = do 
+    goHeader ets = do
       met <- atomically $ readTBMChan eventTypeChan
-      case met of 
+      case met of
         Nothing-> acceptCycle ets -- header is complete
-        Just et -> do 
-          let ets' = ets S.|> et 
+        Just et -> do
+          let ets' = ets S.|> et
           ets' `seq` goHeader ets'
 
-    closeOnExit p addr = bracket (return p) (\p' -> closeCon p' addr) . const 
-    closeCon p addr = do 
-      close p 
+    closeOnExit p addr = bracket (return p) (\p' -> closeCon p' addr) . const
+    closeCon p addr = do
+      close p
       logProf logger $ "Live profile: closed connection to " <> showl addr
 
-    acceptCycle header = forever $ do  
+    acceptCycle header = forever $ do
       res <- accept s
       uncurry (acceptCon header) res
 
-    acceptCon header p addr = do 
+    acceptCon header p addr = do
       logProf logger $ "Accepted connection from " <> showl addr
       -- _ <- listenThread p addr
       let splitter = emptySplitterState $ fromMaybe maxBound eventMessageMaxSize
@@ -89,21 +89,21 @@ startLiveServer logger LiveProfileOpts{..} term pausedRef eventTypeChan eventCha
       _ <- senderThread p addr splitter' header
       return ()
 
-    --listenThread p addr = forkIO $ closeOnExit p addr $ 
+    --listenThread p addr = forkIO $ closeOnExit p addr $
     --  forever yield -- TODO: add service messages listener
     senderThread p addr splitter header = forkIO $ closeOnExit p addr $ do
       labelCurrentThread $ "Sender_" <> show addr
       runEventSender logger p splitter pausedRef eventChan stateRef header
 
 -- Send full state to the remote host
-sendEventlogState :: LoggerSet 
+sendEventlogState :: LoggerSet
   -> ServerSocket
   -> SplitterState
   -> IORef EventlogState
   -> IO SplitterState
-sendEventlogState logger p splitter stateRef = do 
-  st <- readIORef stateRef 
-  let action = stepSplitter $ Left st 
+sendEventlogState logger p splitter stateRef = do
+  st <- readIORef stateRef
+  let action = stepSplitter $ Left st
       ((msgs, splitter'), logMsgs) = runWriter $ runStateT action splitter
   logProf' logger logMsgs
   mapM_ (sendMessage p) msgs
@@ -118,31 +118,31 @@ runEventSender :: LoggerSet -- ^ Where to spam about everthing
   -> IORef EventlogState -- ^ Reference with global eventlog state
   -> S.Seq EventType -- ^ Global event log header, once filled, never changes
   -> IO ()
-runEventSender logger p initialSplitter pausedRef eventChan stateRef header = do 
+runEventSender logger p initialSplitter pausedRef eventChan stateRef header = do
   sendHeaderAndGo header
-  where 
-  sendHeader ets = do 
+  where
+  sendHeader ets = do
     let msgs = mkHeaderMsgs ets
     mapM_ (sendMessage p . ProfileHeader) msgs
-  sendHeaderAndGo ets = do 
+  sendHeaderAndGo ets = do
     sendHeader ets
     logProf logger "Sended full header to client"
     goMain initialSplitter False
 
-  goMain splitter oldPaused = do 
+  goMain splitter oldPaused = do
     me <- atomically $ readTBMChan eventChan
-    case me of 
+    case me of
       Nothing -> return ()
       Just e -> do
-        paused <- readIORef pausedRef 
+        paused <- readIORef pausedRef
         splitter' <- if (paused == oldPaused) -- After pause everything might be different
           then return splitter
           else sendEventlogState logger p splitter stateRef
-        if paused 
+        if paused
           then splitter' `deepseq` goMain splitter' True
-          else do 
-            let 
-              action = stepSplitter $ Right e 
+          else do
+            let
+              action = stepSplitter $ Right e
               ((msgs, splitter''), logMsgs) = runWriter $ runStateT action splitter'
             logProf' logger logMsgs
             --logProf logger $ "Sending event: " <> showl e

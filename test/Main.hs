@@ -2,19 +2,19 @@
 module Main where
 
 import Control.Concurrent
-import Control.Monad 
+import Control.Monad
 import System.Environment
 
 import Test.Client
-import Test.Put 
+import Test.Put
 
 import System.Directory
-import System.Process 
+import System.Process
 
 main :: IO ()
-main = do 
+main = do
   runEventlogSerialisationTests
-  
+
   [path] <- getArgs
   ph <- spawnCommand $ "hs-live-profile --RTS " ++ path ++ " +RTS -lm -N4"
 

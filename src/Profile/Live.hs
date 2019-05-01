@@ -12,19 +12,19 @@ module Profile.Live(
   , initLiveProfile
   , stopLiveProfile
   , pauseLiveProfile
-  ) where 
+  ) where
 
 import Control.Concurrent
 import Control.Concurrent.STM.TBMChan
 import Control.Monad.IO.Class
-import Data.IORef 
+import Data.IORef
 import System.Log.FastLogger
 
-import Profile.Live.Options 
-import Profile.Live.Parser 
+import Profile.Live.Options
+import Profile.Live.Parser
 import Profile.Live.Server
-import Profile.Live.State 
-import Profile.Live.Protocol.Utils 
+import Profile.Live.State
+import Profile.Live.Protocol.Utils
 
 -- | Initialize live profile monitor that accepts connections
 -- from remote tools and tracks state of eventlog protocol.
@@ -47,9 +47,9 @@ initLiveProfile opts eventLogger = liftIO $ do
 -- | Destroy live profiler.
 --
 -- The function closes all sockets, stops all related threads and
--- restores eventlog sink. 
+-- restores eventlog sink.
 stopLiveProfile :: MonadIO m => LiveProfiler -> m ()
-stopLiveProfile LiveProfiler{..} = liftIO $ do 
+stopLiveProfile LiveProfiler{..} = liftIO $ do
   logProf eventLogger "Terminating"
   putMVar eventLogTerminate ()
   _ <- takeMVar eventLogPipeThreadTerm

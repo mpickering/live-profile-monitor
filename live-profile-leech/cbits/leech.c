@@ -1,6 +1,6 @@
 #include "Rts.h"
 
-#ifdef mingw32_HOST_OS // Dependencies for Windows 
+#ifdef mingw32_HOST_OS // Dependencies for Windows
 
 #include <windows.h>
 #include <tchar.h>
@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#else // Dependencies for POSIX 
+#else // Dependencies for POSIX
 
 #include <stdio.h>
 #include <pthread.h>
@@ -54,7 +54,7 @@ DWORD WINAPI leechThread( LPVOID lpParam );
 
 #define DBG(x) fprintf(stdout, x "\n"); fflush(stdout)
 
-void startLeech(char *pName, StgWord64 bSize, StgBool disableFile) 
+void startLeech(char *pName, StgWord64 bSize, StgBool disableFile)
 {
     if (!inited) {
         pipeName = strdup(pName);
@@ -68,17 +68,17 @@ void startLeech(char *pName, StgWord64 bSize, StgBool disableFile)
             rts_setEventLogSink(NULL, 0, 0);
         }
 
-        // spawn thread 
+        // spawn thread
         _tprintf(TEXT("Leech: spawn thread\n"));
-        leechPid = CreateThread( 
+        leechPid = CreateThread(
             NULL,                   // default security attributes
-            0,                      // use default stack size  
+            0,                      // use default stack size
             leechThread,            // thread function name
-            (LPVOID)pipeName,       // argument to thread function 
-            0,                      // use default creation flags 
-            NULL);                  // doesn't return the thread identifier 
+            (LPVOID)pipeName,       // argument to thread function
+            0,                      // use default creation flags
+            NULL);                  // doesn't return the thread identifier
 
-        if (leechPid == NULL) 
+        if (leechPid == NULL)
         {
            _tprintf(TEXT("Create leech thread is failed\n"));
            ExitProcess(2);
@@ -87,7 +87,7 @@ void startLeech(char *pName, StgWord64 bSize, StgBool disableFile)
     }
 }
 
-void stopLeech(void) 
+void stopLeech(void)
 {
     if (inited) {
         terminate = 1;
@@ -137,50 +137,50 @@ DWORD WINAPI leechThread( LPVOID lpParam )
 
     _tprintf(TEXT("Leech: Opening the pipe for writing\n"));
     pipeName = (char *)lpParam;
-    while (1) 
+    while (1)
     {
-        hPipe = CreateFile( 
-            pipeName,       // pipe name 
-            GENERIC_WRITE,  // read access  
-            0,              // no sharing 
+        hPipe = CreateFile(
+            pipeName,       // pipe name
+            GENERIC_WRITE,  // read access
+            0,              // no sharing
             NULL,           // default security attributes
-            OPEN_EXISTING,  // opens existing pipe 
-            0,              // default attributes 
-            NULL);          // no template file 
- 
-        // Break if the pipe handle is valid. 
+            OPEN_EXISTING,  // opens existing pipe
+            0,              // default attributes
+            NULL);          // no template file
+
+        // Break if the pipe handle is valid.
         if (hPipe != INVALID_HANDLE_VALUE) {
-            break; 
+            break;
         }
- 
-        // Exit if an error other than ERROR_PIPE_BUSY occurs. 
- 
-        if (GetLastError() != ERROR_PIPE_BUSY) 
+
+        // Exit if an error other than ERROR_PIPE_BUSY occurs.
+
+        if (GetLastError() != ERROR_PIPE_BUSY)
         {
-            _tprintf( TEXT("Could not open profiler pipe. GLE=%d\n"), GetLastError() ); 
+            _tprintf( TEXT("Could not open profiler pipe. GLE=%d\n"), GetLastError() );
             PrintLastErrorAsString();
             return -1;
         }
 
-        // All pipe instances are busy, so wait for 20 seconds. 
-        if ( ! WaitNamedPipe(pipeName, 20000)) 
+        // All pipe instances are busy, so wait for 20 seconds.
+        if ( ! WaitNamedPipe(pipeName, 20000))
         {
-            _tprintf( TEXT("Could not open profiler pipe: 20 second wait timed out.")); 
+            _tprintf( TEXT("Could not open profiler pipe: 20 second wait timed out."));
             fflush(stdout);
             return -1;
         }
-    } 
+    }
 
     // Set message mode
-    dwMode = PIPE_READMODE_MESSAGE; 
-    fSuccess = SetNamedPipeHandleState( 
-        hPipe,    // pipe handle 
-        &dwMode,  // new pipe mode 
-        NULL,     // don't set maximum bytes 
-        NULL);    // don't set maximum time 
-    if (!fSuccess) 
+    dwMode = PIPE_READMODE_MESSAGE;
+    fSuccess = SetNamedPipeHandleState(
+        hPipe,    // pipe handle
+        &dwMode,  // new pipe mode
+        NULL,     // don't set maximum bytes
+        NULL);    // don't set maximum time
+    if (!fSuccess)
     {
-        _tprintf( TEXT("SetNamedPipeHandleState for profile pipe failed. GLE=%d\n"), GetLastError() ); 
+        _tprintf( TEXT("SetNamedPipeHandleState for profile pipe failed. GLE=%d\n"), GetLastError() );
         PrintLastErrorAsString();
         return -1;
     }
@@ -192,16 +192,16 @@ DWORD WINAPI leechThread( LPVOID lpParam )
             StgWord64 writen = 0;
             StgInt8 *dataLeft = data;
             do {
-                fSuccess = WriteFile( 
-                    hPipe,        // handle to pipe 
-                    dataLeft,     // buffer to write from 
-                    len,          // number of bytes to write 
-                    &writen,      // number of bytes written 
-                    NULL);        // not overlapped I/O 
+                fSuccess = WriteFile(
+                    hPipe,        // handle to pipe
+                    dataLeft,     // buffer to write from
+                    len,          // number of bytes to write
+                    &writen,      // number of bytes written
+                    NULL);        // not overlapped I/O
 
                 if (!fSuccess)
-                {   
-                    _tprintf(TEXT("Leech: WriteFile failed, GLE=%d.\n"), GetLastError()); 
+                {
+                    _tprintf(TEXT("Leech: WriteFile failed, GLE=%d.\n"), GetLastError());
                     break;
                 }
 
@@ -216,13 +216,13 @@ DWORD WINAPI leechThread( LPVOID lpParam )
 
     _tprintf(TEXT("Leech: Closing pipe"));
     fflush(stdout);
-    FlushFileBuffers(hPipe); 
-    DisconnectNamedPipe(hPipe); 
-    CloseHandle(hPipe); 
+    FlushFileBuffers(hPipe);
+    DisconnectNamedPipe(hPipe);
+    CloseHandle(hPipe);
     return NULL;
 }
 
-#else // POSIX implementation 
+#else // POSIX implementation
 
 static pthread_t leechPid;
 static char *pipeName = NULL;
@@ -233,7 +233,7 @@ static FILE* oldFile = NULL;
 
 static void *leechThread(void *);
 
-void startLeech(char *pName, StgWord64 bufferSize, StgBool disableFile) 
+void startLeech(char *pName, StgWord64 bufferSize, StgBool disableFile)
 {
     if (!inited) {
         pipeName = strdup(pName);
@@ -262,7 +262,7 @@ void startLeech(char *pName, StgWord64 bufferSize, StgBool disableFile)
     }
 }
 
-void stopLeech(void) 
+void stopLeech(void)
 {
     if (inited) {
         pthread_cancel(leechPid);
@@ -288,7 +288,7 @@ void closeEventPipe(void *pipe) {
     close(fd);
 }
 
-void *leechThread(void *params) 
+void *leechThread(void *params)
 {
     StgInt8* data;
     StgWord64 len;

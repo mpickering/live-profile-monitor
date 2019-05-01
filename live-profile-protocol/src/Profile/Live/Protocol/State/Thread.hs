@@ -21,22 +21,22 @@ module Profile.Live.Protocol.State.Thread(
   , ThreadsState
   , newThreadsState
   , updateThreadsState
-  ) where 
+  ) where
 
-import Control.DeepSeq 
-import Data.Binary.Serialise.CBOR 
-import Data.Maybe 
-import GHC.Generics 
-import GHC.RTS.Events 
+import Control.DeepSeq
+import Data.Binary.Serialise.CBOR
+import Data.Maybe
+import GHC.Generics
+import GHC.RTS.Events
 
-import qualified Data.HashMap.Strict as H 
+import qualified Data.HashMap.Strict as H
 
 deriving instance Generic ThreadStopStatus
 instance NFData ThreadStopStatus
 instance Serialise ThreadStopStatus
 
 -- | Marker of thread execution state (created, run, stop)
-data ThreadExecutionState = 
+data ThreadExecutionState =
     ThreadCreated -- ^ Thread is created recently
   | ThreadQueued -- ^ Thread is put into caps queue
   | ThreadRunning -- ^ Thread is running at the moment
@@ -62,13 +62,13 @@ instance NFData ThreadState
 instance Serialise ThreadState
 
 -- | Check whether the thread is special spark worker
-isSparkThread :: ThreadState -> Bool 
+isSparkThread :: ThreadState -> Bool
 isSparkThread = isJust . threadSparkCount
 
 -- | Check whether the event refers to threads events
 -- TODO: sparks thread specific state
-isThreadEvent :: Event -> Bool 
-isThreadEvent e = case evSpec e of 
+isThreadEvent :: Event -> Bool
+isThreadEvent e = case evSpec e of
   CreateThread{} -> True
   RunThread{} -> True
   StopThread{} -> True
@@ -77,12 +77,12 @@ isThreadEvent e = case evSpec e of
   WakeupThread{} -> True
   ThreadLabel{} -> True
   CreateSparkThread{} -> True
-  _ -> False 
+  _ -> False
 
 -- | Check whether the event refers to threads events
 -- TODO: sparks thread specific state
-getEventThreadId :: Event -> Maybe ThreadId 
-getEventThreadId e = case evSpec e of 
+getEventThreadId :: Event -> Maybe ThreadId
+getEventThreadId e = case evSpec e of
   CreateThread{..} -> Just thread
   RunThread{..} -> Just thread
   StopThread{..} -> Just thread
@@ -91,14 +91,14 @@ getEventThreadId e = case evSpec e of
   WakeupThread{..} -> Just thread
   ThreadLabel{..} -> Just thread
   CreateSparkThread{..} -> Just sparkThread
-  _ -> Nothing 
+  _ -> Nothing
 
 -- | Helper to create new thread state
-newThreadState :: Timestamp -> ThreadId -> Bool -> ThreadState 
+newThreadState :: Timestamp -> ThreadId -> Bool -> ThreadState
 newThreadState t i isSpark = ThreadState {
     threadId = i
   , threadLabel = Nothing
-  , threadCap = -1 
+  , threadCap = -1
   , threadExecution = ThreadCreated
   , threadSparkCount = if isSpark then (Just 0) else Nothing
   , threadCreationTimestamp = t
@@ -107,15 +107,15 @@ newThreadState t i isSpark = ThreadState {
 
 -- | Update thread state with payload of the event, doesn't check thread id actually
 updateThreadState :: Event -> ThreadState -> ThreadState
-updateThreadState !e !ts = case ei of 
+updateThreadState !e !ts = case ei of
   RunThread{} -> ts' { threadExecution = ThreadRunning }
   StopThread{..} -> ts' { threadExecution = ThreadStopped status }
   ThreadRunnable{} -> ts' { threadExecution = ThreadQueued }
   MigrateThread{..} -> ts' { threadExecution = ThreadMigrated, threadCap = newCap }
   ThreadLabel{..} -> ts { threadLabel = Just threadlabel }
-  _ -> ts 
-  where 
-  t = evTime e 
+  _ -> ts
+  where
+  t = evTime e
   ei = evSpec e
   ts' = ts { threadLastTimestamp = t }
 
@@ -124,14 +124,14 @@ type ThreadsState = H.HashMap ThreadId ThreadState
 
 -- | New empty threads state
 newThreadsState :: ThreadsState
-newThreadsState = H.empty 
+newThreadsState = H.empty
 
 -- | Update the threads state with given event
-updateThreadsState :: Event -> ThreadsState -> ThreadsState 
-updateThreadsState !e tss = case getEventThreadId e of 
+updateThreadsState :: Event -> ThreadsState -> ThreadsState
+updateThreadsState !e tss = case getEventThreadId e of
   Nothing -> tss
-  Just i -> case evSpec e of 
+  Just i -> case evSpec e of
     CreateThread{..} -> H.insert i (newThreadState (evTime e) i False) tss
-    CreateSparkThread{..} -> H.insert i (newThreadState (evTime e) i True) tss 
+    CreateSparkThread{..} -> H.insert i (newThreadState (evTime e) i True) tss
     StopThread _ ThreadFinished -> H.delete i tss
     _ -> H.adjust (updateThreadState e) i tss

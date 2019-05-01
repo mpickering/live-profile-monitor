@@ -1,11 +1,11 @@
 module Profile.Live.Pipe(
     PipeOptions(..)
   , startPipe
-  ) where 
+  ) where
 
-import Control.Monad.IO.Class 
+import Control.Monad.IO.Class
 import Foreign hiding (void)
-import Foreign.C 
+import Foreign.C
 
 import qualified Data.ByteString as BS
 
@@ -32,10 +32,10 @@ foreign import ccall "wrapper" createPipeCallback :: PipeCallback -> IO (FunPtr 
 --
 -- Returns action which call stops the pipe and frees its memory.
 startPipe :: MonadIO m => PipeOptions -> m (IO ())
-startPipe PipeOptions{..} = liftIO $ withCString pipeName $ \pn -> do 
+startPipe PipeOptions{..} = liftIO $ withCString pipeName $ \pn -> do
   cb <- createPipeCallback $ \ptr i -> do
     bs <- BS.packCStringLen (castPtr ptr, fromIntegral i)
-    pipeCallback bs 
+    pipeCallback bs
   c_startPipe pn pipeBufferSize cb
   return $ do
     c_stopPipe

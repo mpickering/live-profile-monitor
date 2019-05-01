@@ -17,8 +17,8 @@ library
   exposed-modules:
     Profile.Live.Leech
   c-sources:
-    cbits/leech.c 
-  build-depends:       
+    cbits/leech.c
+  build-depends:
     base >= 4.7 && < 5
   default-language:    Haskell2010
 

@@ -13,11 +13,11 @@ module Profile.Live.Protocol.Message(
   -- * Helpers for the protocol users
   , capToGhcEvents
   , capFromGhcEvents
-  ) where 
- 
+  ) where
+
 import Control.DeepSeq
-import Data.Binary.Serialise.CBOR 
-import Data.Word 
+import Data.Binary.Serialise.CBOR
+import Data.Word
 import GHC.Generics
 import GHC.RTS.Events
 
@@ -29,8 +29,8 @@ import qualified Data.ByteString as BS
 -- datagram based transports, so large events could be splitted into several
 -- parts to fit into the MTU.
 --
--- Note: the datagram implementation should support delivery guarantees 
-data ProfileMsg = 
+-- Note: the datagram implementation should support delivery guarantees
+data ProfileMsg =
     ProfileService {-# UNPACK #-} !ServiceMsg -- ^ Service message
   | ProfileHeader !HeaderMsg -- ^ Header message
   | ProfileEvent !EventMsg -- ^ Payload message
@@ -43,19 +43,19 @@ data ServiceMsg =
   deriving (Generic, Show)
 
 -- | Messages about eventlog header
-data HeaderMsg = 
+data HeaderMsg =
     HeaderLength {-# UNPACK #-} !Word64
   | HeaderType {-# UNPACK #-} !BS.ByteString -- TODO: might not fit into a datagram
   deriving (Generic, Show)
 
 -- | Type of messages that carry eventlog datum
-data EventMsg = 
+data EventMsg =
     EventBlockMsg !EventBlockMsg -- ^ Chunked portion of events
   | EventMsg !EventMsgPartial -- ^ Possibly partial message
   deriving (Generic, Show)
 
 -- | Special case for block of events as it can contain large amount of events
-data EventBlockMsg = 
+data EventBlockMsg =
   -- | Header of the block
     EventBlockMsgHeader {-# UNPACK #-} !EventBlockMsgData
   -- | Wrapper for message that is attached to particular block
@@ -65,7 +65,7 @@ data EventBlockMsg =
     }
   deriving (Generic, Show)
 
--- | Header of event block, extracted from ADT to be able to use as standalone type 
+-- | Header of event block, extracted from ADT to be able to use as standalone type
 data EventBlockMsgData = EventBlockMsgData {
     eblockMsgDataId :: {-# UNPACK #-} !Word64 -- ^ Id of the block that is unique for the session
   , eblockMsgDataBeginTimestamp :: {-# UNPACK #-} !Timestamp -- ^ Time when the block began
@@ -75,18 +75,18 @@ data EventBlockMsgData = EventBlockMsgData {
   } deriving (Generic, Show)
 
 -- | Subtype of payload messages that can be splitted into several parts
-data EventMsgPartial = 
+data EventMsgPartial =
     EventMsgFull {-# UNPACK #-} !BS.ByteString -- ^ Eventlog event, except the block markers and too large events
   -- | When event is too big to fit into the MTU, it is splited into several parts, it is the first part -- the header of such sequence.
-  | EventMsgPartial {-# UNPACK #-} !EventPartialData 
+  | EventMsgPartial {-# UNPACK #-} !EventPartialData
   | EventMsgPart {
       epartMsgId :: {-# UNPACK #-} !Word64 -- | Unique id within connection, that matches the `epartialMsgId`
-    , epartMsgNum :: {-# UNPACK #-} !Word64 -- | Number of the part 
+    , epartMsgNum :: {-# UNPACK #-} !Word64 -- | Number of the part
     , epartMsgPayload :: {-# UNPACK #-} !BS.ByteString -- | Payload of the message
     }
   deriving (Generic, Show)
 
--- | Header of partial event message, extracted from ADT to be able to use as standalone type 
+-- | Header of partial event message, extracted from ADT to be able to use as standalone type
 data EventPartialData = EventPartialData {
     epartialMsgId :: {-# UNPACK #-} !Word64 -- | Unique id within connection
   , epartialMsgParts :: {-# UNPACK #-} !Word64 -- | How many parts are in the messages
@@ -101,26 +101,26 @@ instance NFData EventBlockMsgData
 instance NFData EventMsgPartial
 instance NFData EventPartialData
 
-instance NFData EventType where 
+instance NFData EventType where
   rnf EventType{..} = num `seq` desc `seq` size `deepseq` ()
 
-instance NFData Event where 
+instance NFData Event where
   rnf Event{..} = evTime `seq` evSpec `deepseq` evCap `seq` ()
 
-instance NFData KernelThreadId where 
+instance NFData KernelThreadId where
   rnf (KernelThreadId v) = v `seq` ()
 
-instance NFData Data where 
+instance NFData Data where
   rnf (Data es) = es `deepseq` ()
 
-instance NFData Header where 
+instance NFData Header where
   rnf (Header ets) = ets `deepseq` ()
-  
-instance NFData EventLog where 
+
+instance NFData EventLog where
   rnf (EventLog h d) = h `deepseq` d `deepseq` ()
 
-instance NFData EventInfo where 
-  rnf e = case e of 
+instance NFData EventInfo where
+  rnf e = case e of
     EventBlock{..} -> end_time `seq` cap `seq` block_size `deepseq` ()
     UnknownEvent{..} -> ref `seq` ()
     Startup{..} -> n_caps `seq` ()
@@ -169,7 +169,7 @@ instance NFData EventInfo where
     HeapAllocated{..} -> heapCapset `deepseq` allocBytes `seq` ()
     HeapSize{..} -> heapCapset `deepseq` sizeBytes `seq` ()
     HeapLive{..} -> heapCapset `deepseq` liveBytes `seq` ()
-    HeapInfoGHC{..} -> heapCapset `deepseq` 
+    HeapInfoGHC{..} -> heapCapset `deepseq`
       gens `seq`
       maxHeapSize `seq`
       allocAreaSize `seq`
@@ -212,7 +212,7 @@ instance NFData EventInfo where
       receiverInport `seq`
       senderMachine `seq`
       senderProcess `seq`
-      senderThread `seq` 
+      senderThread `seq`
       messageSize `seq` ()
     SendReceiveLocalMessage{..} -> mesTag `seq`
       senderProcess `seq`
@@ -248,11 +248,11 @@ instance Serialise EventBlockMsgData
 instance Serialise EventPartialData
 
 -- | Convert representation of cap to ghc-events one
-capToGhcEvents :: Word32 -> Int 
+capToGhcEvents :: Word32 -> Int
 capToGhcEvents i = fromIntegral i - 1
 
 -- | Convert representation of cap from ghc-events one
-capFromGhcEvents :: Int -> Word32 
-capFromGhcEvents i 
-  | i < 0 = 0 
+capFromGhcEvents :: Int -> Word32
+capFromGhcEvents i
+  | i < 0 = 0
   | otherwise = fromIntegral i + 1

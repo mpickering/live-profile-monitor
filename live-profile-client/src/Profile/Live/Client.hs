@@ -8,7 +8,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Client side utilities to receive data from remote profiling server. 
+-- Client side utilities to receive data from remote profiling server.
 --
 ------------------------------------------------------------------------------
 module Profile.Live.Client(
@@ -19,14 +19,14 @@ module Profile.Live.Client(
   , ClientBehavior(..)
   , defaultClientBehavior
   , startLiveClient
-  ) where 
+  ) where
 
 import Control.Concurrent
-import Control.DeepSeq 
-import Control.Exception 
-import Control.Monad.State.Strict 
+import Control.DeepSeq
+import Control.Exception
+import Control.Monad.State.Strict
 import Control.Monad.Writer.Strict
-import Data.Time 
+import Data.Time
 import GHC.Generics
 import GHC.RTS.Events hiding (ThreadId)
 import System.Log.FastLogger
@@ -37,18 +37,18 @@ import System.Socket.Protocol.TCP
 import System.Socket.Type.Stream
 
 import Profile.Live.Protocol.Collector
-import Profile.Live.Protocol.Message 
-import Profile.Live.Protocol.State 
+import Profile.Live.Protocol.Message
+import Profile.Live.Protocol.State
 import Profile.Live.Protocol.Utils
-import Profile.Live.Termination 
+import Profile.Live.Termination
 
 -- | Options for live profile client side
 data LiveProfileClientOpts = LiveProfileClientOpts {
-  -- | Target address where the client connects to 
+  -- | Target address where the client connects to
     clientTargetAddr :: !(SocketAddress Inet6)
   -- | How long to wait until the server drops outdated sequences of partial messages and blocks.
   , clientMessageTimeout :: !NominalDiffTime
-  } deriving Show 
+  } deriving Show
 
 -- | Default values for options of live profiler client
 defaultLiveProfileClientOpts :: LiveProfileClientOpts
@@ -70,7 +70,7 @@ data ClientBehavior = ClientBehavior {
 } deriving (Generic)
 
 -- | Client behavior that does nothing
-defaultClientBehavior :: ClientBehavior 
+defaultClientBehavior :: ClientBehavior
 defaultClientBehavior = ClientBehavior {
     clientOnHeader = const $ return ()
   , clientOnEvent = const $ return ()
@@ -83,21 +83,21 @@ defaultClientBehavior = ClientBehavior {
 startLiveClient :: LoggerSet -- ^ Monitor logging messages sink
   -> LiveProfileClientOpts -- ^ Options for client side
   -> TerminationPair  -- ^ Termination protocol
-  -> ClientBehavior -- ^ User specified callbacks 
-  -> IO ThreadId -- ^ Starts new thread that connects to remote host and 
-startLiveClient logger LiveProfileClientOpts{..} term cb = forkIO $ 
-  trackTermination (clientOnExit cb) $ 
-  printExceptions "Live client" $ do 
+  -> ClientBehavior -- ^ User specified callbacks
+  -> IO ThreadId -- ^ Starts new thread that connects to remote host and
+startLiveClient logger LiveProfileClientOpts{..} term cb = forkIO $
+  trackTermination (clientOnExit cb) $
+  printExceptions "Live client" $ do
     labelCurrentThread "Client"
     untilTerminatedPair term $ bracket socket clientClose $ \s -> do
       connect s clientTargetAddr
       clientBody s
     logProf logger "Client thread terminated"
     where
-    clientClose s = do 
+    clientClose s = do
       logProf logger "Client disconnected"
-      close s 
-    clientBody s = do 
+      close s
+    clientBody s = do
       logProf logger $ "Client thread started and connected to " <> showl clientTargetAddr
       runEventListener logger s clientMessageTimeout cb
       --_ <- senderThread s
@@ -108,35 +108,35 @@ startLiveClient logger LiveProfileClientOpts{..} term cb = forkIO $
 runEventListener :: LoggerSet -- ^ Where to spam about everything
   -> ClientSocket -- ^ Which socket to listen for incoming messages
   -> NominalDiffTime -- ^ Timeout for collector internal state
-  -> ClientBehavior -- ^ User specified callbacks 
+  -> ClientBehavior -- ^ User specified callbacks
   -> IO ()
 runEventListener logger p msgTimeout ClientBehavior{..} = go (emptyMessageCollector msgTimeout)
-  where 
+  where
   go collector = do
     mmsg <- recieveMessage p
-    case mmsg of 
-      Left MsgEndOfInput -> do 
+    case mmsg of
+      Left MsgEndOfInput -> do
         logProf logger "runEventListener: end of input"
         return ()
       Left (MsgDeserialisationFail er) -> do
         logProf logger er
         go collector
-      Right msg -> do 
+      Right msg -> do
         --logProf logger $ showl msg
         curTime <- getCurrentTime
         let stepper = stepMessageCollector curTime msg
-        let ((evs, collector'), msgs) = runWriter $ runStateT stepper collector 
+        let ((evs, collector'), msgs) = runWriter $ runStateT stepper collector
         logProf' logger msgs
-        forM_ evs $ \ev -> case ev of 
-          CollectorHeader h -> do 
-            logProf logger $ "Collected full header with " 
+        forM_ evs $ \ev -> case ev of
+          CollectorHeader h -> do
+            logProf logger $ "Collected full header with "
               <> showl (length $ eventTypes h) <> " event types"
-            clientOnHeader h 
-          CollectorService smsg -> do 
+            clientOnHeader h
+          CollectorService smsg -> do
             logProf logger $ "Got service message" <> showl smsg
             clientOnService smsg
           CollectorEvents es -> do
             mapM_ clientOnEvent es
-          CollectorState s -> clientOnState s 
+          CollectorState s -> clientOnState s
 
         collector' `deepseq` go collector'

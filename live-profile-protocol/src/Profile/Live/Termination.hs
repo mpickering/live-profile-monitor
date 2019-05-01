@@ -11,7 +11,7 @@
 -- Portability :  non-portable
 --
 -- Utilities for termination protocol of threads. Can be used to terminate
--- worker threads and wait for the event that they actually quited. 
+-- worker threads and wait for the event that they actually quited.
 --
 ------------------------------------------------------------------------------
 module Profile.Live.Termination(
@@ -23,17 +23,17 @@ module Profile.Live.Termination(
   , untilTerminated
   , untilTerminatedPair
   -- * Helpers
-  , terminate 
+  , terminate
   , terminateAndWait
   , waitTermination
-  ) where 
+  ) where
 
 import Control.Concurrent
 import Control.Exception   (Exception(..), handleJust, bracket,
                             uninterruptibleMask_,
                             asyncExceptionToException,
                             asyncExceptionFromException)
-import Control.Monad.IO.Class 
+import Control.Monad.IO.Class
 import Data.Unique         (Unique, newUnique)
 
 -- | Termination mutex, all threads are stopped when the mvar is filled
@@ -62,8 +62,8 @@ waitTermination v = liftIO $ readMVar v
 
 -- | Blocking variant of 'terminate', wait until the child thread is terminated
 terminateAndWait :: MonadIO m => TerminationPair -> m ()
-terminateAndWait (v1, v2) = do 
-  terminate v1 
+terminateAndWait (v1, v2) = do
+  terminate v1
   waitTermination v2
 
 -- An internal type that is thrown as a dynamic exception to
@@ -80,7 +80,7 @@ instance Exception TerminationException where
   fromException = asyncExceptionFromException
 
 -- | Do action until termination flag is set.
--- 
+--
 -- The implemenation is taken from 'System.Timeout' module and
 -- has the same weak points: we cannot terminate blocking FFI call.
 untilTerminated :: MonadIO m => Termination -> IO a -> m ()
@@ -89,20 +89,20 @@ untilTerminated v m = liftIO $ do
   ex  <- fmap Termination newUnique
   _ <- handleJust (\e -> if e == ex then Just () else Nothing)
                   (\_ -> return Nothing)
-                  (bracket 
+                  (bracket
                     (forkIOWithUnmask $ waiter pid ex)
                     (uninterruptibleMask_ . killThread)
                     (\_ -> fmap Just m))
   return ()
-  where 
+  where
     waiter pid ex unmask = unmask $ waitTermination v >> throwTo pid ex
 
--- | Do action until termination flag is set and signal remote thread 
+-- | Do action until termination flag is set and signal remote thread
 -- that we are done.
--- 
+--
 -- The implemenation is taken from 'System.Timeout' module and
 -- has the same weak points: we cannot terminate blocking FFI call.
 untilTerminatedPair :: MonadIO m => TerminationPair -> IO a -> m ()
-untilTerminatedPair (v1, v2) m = do 
-  untilTerminated v1 m 
-  terminate v2 
+untilTerminatedPair (v1, v2) m = do
+  untilTerminated v1 m
+  terminate v2

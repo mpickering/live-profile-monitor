@@ -27,7 +27,7 @@ library
     Profile.Live.Protocol.State.Thread
     Profile.Live.Protocol.Utils
     Profile.Live.Termination
-  build-depends:       
+  build-depends:
       base                    >= 4.7      && < 5
     , binary                  >= 0.7.6.1  && < 0.9
     , binary-serialise-cbor   >= 0.1.1.0  && < 0.2

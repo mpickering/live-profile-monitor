@@ -3,19 +3,19 @@
 It is client side library for live eventlog profiling toolchain. The library collects data from
 eventlog and sends it via UDP or TCP to remote profiling tool.
 
-The repo is related to the Haskell Summer of Code 2016 [project](http://ncrashed.github.io/blog/posts/2016-06-12-hsoc-acceptance.html). The tool is currently requires hacked RTS (see below) to 
+The repo is related to the Haskell Summer of Code 2016 [project](http://ncrashed.github.io/blog/posts/2016-06-12-hsoc-acceptance.html). The tool is currently requires hacked RTS (see below) to
 operate properly.
 
-# How to build 
+# How to build
 
 * You need a patched GHC 8.1 from [the repo](https://github.com/NCrashed/ghc) until the project is merged into
 GHC master.
 
-* Clone and boot the repo: 
+* Clone and boot the repo:
 ```
 git clone https://github.com/NCrashed/live-profile-monitor.git --recursive
 cd live-profile-monitor
-cd ghc-events && git checkout incremental && cd .. 
+cd ghc-events && git checkout incremental && cd ..
 ```
 
 ## Cabal >= 1.24

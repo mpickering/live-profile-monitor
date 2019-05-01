@@ -16,11 +16,11 @@ in memory and provides facilities to take them from RTS side.
 ``` haskell
 import Control.Exception (bracket)
 import Control.Monad (forM_)
-import Debug.Trace 
+import Debug.Trace
 import Profile.Live.Leech
 
 main :: IO ()
-main = bracket (startLeech defaultLeechOptions) (const stopLeech) $ const $ do 
+main = bracket (startLeech defaultLeechOptions) (const stopLeech) $ const $ do
   forM_ [0 .. 1000000 :: Int] $ \i -> traceEventIO $ "MyEvent" ++ show i
 ```
 
@@ -31,22 +31,22 @@ main = bracket (startLeech defaultLeechOptions) (const stopLeech) $ const $ do
 --
 -- Note: name of event should correspond one that was used in 'traceStopLiveEvent'
 traceStartLiveEvent :: String -- ^ Event name
-  -> a -> a 
-  
+  -> a -> a
+
 -- | Record end of user event
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStartLiveEvent'
 traceStopLiveEvent :: String -- ^ Event name
-  -> a -> a 
+  -> a -> a
 
 -- | IO version of 'traceStartLiveEvent' that can be used in do notation
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStopLiveEventIO'
 traceStartLiveEventIO :: String -- ^ Name of event
   -> IO ()
 
 -- | IO version of 'traceStopLiveEvent' that can be used in do notation
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStartLiveEventIO'
 traceStopLiveEventIO :: String -- ^ Name of event
   -> IO ()

@@ -7,11 +7,11 @@ Maintainer  : ncrashed@gmail.com
 Stability   : experimental
 Portability : POSIX
 
-The leech is thread that is run on application side we profile. The thread is 
+The leech is thread that is run on application side we profile. The thread is
 system thread in C universe (not Haskell thread). Its main purpose to pass
 RTS events into external process of live profiler.
 
-You need to start leech thread in your application to use live profiler. 
+You need to start leech thread in your application to use live profiler.
 
 Example of usage:
 @
@@ -21,7 +21,7 @@ import Debug.Trace (traceEventIO)
 import Profile.Live.Leech
 
 main :: IO ()
-main = bracket (startLeech defaultLeechOptions) (const stopLeech) $ const $ do 
+main = bracket (startLeech defaultLeechOptions) (const stopLeech) $ const $ do
   forM_ [0 .. 1000000] $ \i -> traceEventIO $ "MyEvent" ++ show i
 @
 
@@ -44,13 +44,13 @@ module Profile.Live.Leech(
   , traceStartLiveEventIO
   , traceStopLiveEventIO
   , withLiveEventIO
-  ) where 
+  ) where
 
 import Control.Exception (bracket)
-import Data.Word 
+import Data.Word
 import Debug.Trace (traceEvent, traceEventIO)
-import Foreign.C 
-import Foreign.Marshal.Utils 
+import Foreign.C
+import Foreign.Marshal.Utils
 
 -- | Configuration of eventlog pipe located
 -- on side of application being profiled.
@@ -76,7 +76,7 @@ defaultLeechOptions = LeechOptions {
 #endif
   , leechBufferSize = 1024
   , leechDisableEventlogFile = True
-  } 
+  }
 
 foreign import ccall "startLeech" c_startLeech :: CString -> Word64 -> CInt -> IO ()
 foreign import ccall "stopLeech" c_stopLeech :: IO ()
@@ -94,25 +94,25 @@ stopLeech = c_stopLeech
 --
 -- Note: name of event should correspond one that was used in 'traceStopLiveEvent'
 traceStartLiveEvent :: String -- ^ Event name
-  -> a -> a 
+  -> a -> a
 traceStartLiveEvent name = traceEvent ("START " ++ name)
 
 -- | Record end of user event
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStartLiveEvent'
 traceStopLiveEvent :: String -- ^ Event name
-  -> a -> a 
+  -> a -> a
 traceStopLiveEvent name = traceEvent ("END " ++ name)
 
 -- | IO version of 'traceStartLiveEvent' that can be used in do notation
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStopLiveEventIO'
 traceStartLiveEventIO :: String -- ^ Name of event
   -> IO ()
 traceStartLiveEventIO name = traceEventIO ("START " ++ name)
 
 -- | IO version of 'traceStopLiveEvent' that can be used in do notation
--- 
+--
 -- Note: name of event should correspond one that was used in 'traceStartLiveEventIO'
 traceStopLiveEventIO :: String -- ^ Name of event
   -> IO ()

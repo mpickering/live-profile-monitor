@@ -2,7 +2,7 @@ module Profile.Live.State(
     EventTypeChan
   , EventChan
   , LiveProfiler(..)
-  ) where 
+  ) where
 
 import Control.Concurrent
 import Control.Concurrent.STM.TBMChan
@@ -13,7 +13,7 @@ import System.Log.FastLogger
 import Profile.Live.Termination
 
 -- | Channel for eventlog header, closeable and bounded in length
-type EventTypeChan = TBMChan EventType 
+type EventTypeChan = TBMChan EventType
 
 -- | Channel for eventlog events, closeable and bounded in length
 type EventChan = TBMChan Event
@@ -25,7 +25,7 @@ data LiveProfiler = LiveProfiler {
   eventLogPipeThread :: !ThreadId
   -- | When the pipe thread is ended it fills the mvar
 , eventLogPipeThreadTerm :: !Termination
-  -- | ID of thread that manages TCP connections to remote profiles 
+  -- | ID of thread that manages TCP connections to remote profiles
   -- and manages communication with them.
 , eventLogServerThread :: !ThreadId
   -- | When the server thread is ended it fills the mvar

@@ -3,17 +3,17 @@ module Test.Put(
     runEventlogSerialisationTests
   ) where
 
-import GHC.RTS.Events 
-import GHC.RTS.EventsIncremental 
-import Control.DeepSeq 
+import GHC.RTS.Events
+import GHC.RTS.EventsIncremental
+import Control.DeepSeq
 
-import qualified Data.Sequence as S 
+import qualified Data.Sequence as S
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Foldable as F 
+import qualified Data.Foldable as F
 
 import Profile.Live.Protocol.Message()
 
-testHeader :: Header 
+testHeader :: Header
 testHeader = Header { eventTypes = [
     EventType {num = 0, desc = "Create thread", size = Just 4}
   , EventType {num = 1, desc = "Run thread", size = Just 4}
@@ -68,7 +68,7 @@ testHeader = Header { eventTypes = [
   , EventType {num = 59, desc = "Empty event for bug #9003", size = Just 0}
   ]}
 
-testEvents :: Data 
+testEvents :: Data
 testEvents = Data {
     events = [
       Event {evTime = 9917074, evSpec = UserMessage {msg = "MyEvent"}, evCap = Nothing}
@@ -86,26 +86,26 @@ testEvents = Data {
     ]
   }
 
-deserialiseEventLog :: BSL.ByteString -> EventLog 
-deserialiseEventLog bs = go False S.empty initParser 
-  where 
-  initParser = newParserState `pushBytes` BSL.toStrict bs 
-  go wasIncomplete !acc !parser = let 
+deserialiseEventLog :: BSL.ByteString -> EventLog
+deserialiseEventLog bs = go False S.empty initParser
+  where
+  initParser = newParserState `pushBytes` BSL.toStrict bs
+  go wasIncomplete !acc !parser = let
     (res, parser') = readEvent parser
-    in case res of 
+    in case res of
       Item e -> go wasIncomplete (acc S.|> e) parser'
       Incomplete -> if wasIncomplete then error "deserializeEventLog: Incomplete"
         else go True acc parser'
       ParseError s -> error $ "deserializeEventLog: " ++ s
-      Complete -> let 
+      Complete -> let
         Just header' = readHeader parser'
         in EventLog header' (Data (F.toList acc))
 
 checkEventlogSerialisation :: EventLog -> IO ()
 checkEventlogSerialisation el = el' `deepseq` return ()
-  where 
-  el' = deserialiseEventLog . serialiseEventLog $ el 
+  where
+  el' = deserialiseEventLog . serialiseEventLog $ el
 
 runEventlogSerialisationTests :: IO ()
-runEventlogSerialisationTests = do 
+runEventlogSerialisationTests = do
   checkEventlogSerialisation $ EventLog testHeader testEvents
