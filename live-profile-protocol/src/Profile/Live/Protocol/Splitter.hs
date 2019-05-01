@@ -15,6 +15,7 @@ import Data.Binary.Serialise.CBOR
 import Data.Word
 import GHC.Generics
 import GHC.RTS.Events
+import GHC.RTS.Events.Binary
 
 import Profile.Live.Protocol.Message
 import Profile.Live.Protocol.State

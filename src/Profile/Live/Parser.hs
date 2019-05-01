@@ -11,7 +11,7 @@ import Data.IORef
 import Data.Monoid
 import Foreign hiding (void)
 import GHC.RTS.Events hiding (ThreadId)
-import GHC.RTS.EventsIncremental
+import GHC.RTS.Events.Incremental
 import System.Log.FastLogger
 
 import qualified Data.ByteString as B

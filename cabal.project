@@ -1,6 +1,6 @@
 packages:
   ./
---  ghc-events/
+  ghc-events/
 --  binary-serialise-cbor/
   live-profile-client/
   live-profile-leech/

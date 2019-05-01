@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Profile.Live.Protocol.Collector(
     MessageCollector
   , CollectorOutput(..)
@@ -11,7 +12,7 @@ import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Class
 import Control.Monad.Writer.Class
-import Data.Binary.Serialise.CBOR
+import Data.Binary.Serialise.CBOR (deserialiseOrFail)
 import Data.Maybe
 import Data.Monoid
 import Data.Ord
@@ -19,14 +20,18 @@ import Data.Time
 import Data.Word
 import GHC.Generics
 import GHC.RTS.Events
-import GHC.RTS.EventsIncremental
+import GHC.RTS.Events.Binary
+import GHC.RTS.Events.Incremental
 import System.Log.FastLogger
+import Control.Monad.Fail
+import Data.Bifunctor
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Foldable as F
 import qualified Data.HashMap.Strict as H
 import qualified Data.Sequence as S
+import qualified Data.Binary.Get as G
 
 import Profile.Live.Protocol.Message
 import Profile.Live.Protocol.State
@@ -49,7 +54,7 @@ data MessageCollector = MessageCollector {
     -- received.
   , collectorHeader :: !(Maybe Word64, Word64)
     -- | Current state of incremental parser
-  , collectorParser :: !EventParserState
+  , collectorParser :: Either (Decoder Header) (Decoder Event)
     -- | Eventlog header
   , collectorCachedHeader :: !(Maybe Header)
   }
@@ -70,7 +75,7 @@ emptyMessageCollector timeout = MessageCollector {
   , collectorBlocks = H.empty
   , collectorTimeout = timeout
   , collectorHeader = (Nothing, 0)
-  , collectorParser = newParserState `pushBytes` ("hdrb" <> "hetb") -- TODO: use constant from ghc-events
+  , collectorParser = Left $ decodeHeader `pushChunk` ("hdrb" <> "hetb")
   , collectorCachedHeader = Nothing
   }
 
@@ -88,14 +93,20 @@ isHeaderCollected MessageCollector{..} = let
 
 -- | Return header that is collector in the message collected
 collectedEventlogHeader :: MessageCollector -> Maybe Header
-collectedEventlogHeader MessageCollector{..} = readHeader collectorParser
+collectedEventlogHeader MessageCollector{..} = collectorCachedHeader
 
 -- | Adding markers to header parser that indicates the end of header block
 -- and start of event decoding.
 finaliseEventlogHeader :: MessageCollector -> MessageCollector
-finaliseEventlogHeader mc@MessageCollector{..} = mc {
-    collectorParser = collectorParser `pushBytes` ("hete" <> "hdre" <> "datb")  -- TODO: use constants from ghc-events
-  }
+finaliseEventlogHeader mc@MessageCollector{..} =
+    case collectorParser of
+                        Left p -> case p `pushChunk` ("hete" <> "hdre" <> "datb") of
+                                    Produce header (Done "") ->
+                                      mc { collectorCachedHeader = Just header
+                                         , collectorParser = Right (decodeEvents header) }
+                                    _ -> error "Incomplete header"
+                        Right f -> error "Already finalised header"
+
 
 -- | Helper to extract eventlog header from incremental parser.
 -- The incremental parser updates it state with delay in one parsed item.
@@ -119,7 +130,7 @@ data CollectorOutput =
   deriving (Show, Generic)
 
 -- | Perform one step of converting the profiler protocol into events
-stepMessageCollector :: (MonadState MessageCollector m, MonadWriter LogStr m)
+stepMessageCollector :: (MonadFail m, MonadState MessageCollector m, MonadWriter LogStr m)
   => UTCTime -- ^ Current time
   -> ProfileMsg -- ^ New message arrived
   -> m (S.Seq CollectorOutput) -- ^ Result of decoded events
@@ -178,8 +189,14 @@ stepHeaderCollector hmsg = do
           let curN' = curN + 1
           modify' $ \mc -> curN' `seq` mc {
               collectorHeader = (maxN, curN')
-            , collectorParser = collectorParser `pushBytes` bs
+            , collectorParser = collectorParser `pushChunkH` bs
             }
+
+pushChunkH :: Either (Decoder Header) b -> BS.ByteString -> Either (Decoder Header) b
+pushChunkH e bl = bimap (flip pushChunk bl) id e
+
+pushChunkE :: Either a (Decoder b) -> BS.ByteString -> Either a (Decoder b)
+pushChunkE e bl = bimap id (flip pushChunk bl) e
 
 -- | Perform one step of converting the profiler protocol into events
 stepEventCollector :: (MonadState MessageCollector m, MonadWriter LogStr m)
@@ -248,7 +265,7 @@ stepEventCollector curTime msg = case msg of
   -- | Process partial messages and return collected results.
   -- The main nuance is that header and events can arrive in
   -- out of order, so need to handle this neatly.
-  collectorPartial' :: (MonadState MessageCollector m, MonadWriter LogStr m)
+  collectorPartial' :: forall m . (MonadState MessageCollector m, MonadWriter LogStr m)
     => EventMsgPartial -- ^ Message about event block
     -> m (Maybe Event)
   collectorPartial' pmsg = do
@@ -258,22 +275,24 @@ stepEventCollector curTime msg = case msg of
     -- We drop new parser state as we always
     -- feed enough data to get new event. Pure parser state cannot be stored as collector state
     -- as the bits could arrive in out of order.
+    withParsed :: BS.ByteString -> (Event -> m (Maybe a)) -> m (Maybe a)
     withParsed payload m = do
-      parser <- gets collectorParser
-      let (res, parser') = readEvent $ pushBytes parser payload
-      case res of
-        Incomplete -> do
-          modify' $ \mc -> mc { collectorParser = parser' }
+      mparser <- gets collectorParser
+      let parser = either (error "Expecting events parser") id mparser
+      case parser of
+        Consume k -> do
+          let parser' = k payload
+          modify' $ \mc -> mc { collectorParser = Right parser' }
           return Nothing
-        Complete -> do
+        Done _le -> do
           tell $ "Live profiler: Received event, but the incremental parser is finished, please report a bug.\n"
           return Nothing -- something went wrong.
-        ParseError s -> do
+        Error _le s -> do
           tell $ "Live profiler: Received incorrect event's payload: " <> toLogStr (show payload)
             <> ". Error: " <> toLogStr s <> "\n"
           return Nothing  -- something went wrong.
-        Item ev -> do
-          modify' $ \mc -> mc { collectorParser = parser' }
+        Produce ev d -> do
+          modify' $ \mc -> mc { collectorParser = Right $ d `pushChunk` payload }
           m ev
 
 -- | Generic collector of partial messages
