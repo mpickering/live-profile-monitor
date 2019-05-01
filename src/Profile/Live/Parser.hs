@@ -49,19 +49,25 @@ redirectEventlog logger LiveProfileOpts{..} term eventTypeChan eventChan = do
     labelCurrentThread "Parser"
     logProf logger "Parser thread started"
     bracket (initMemoryPipe eventLogPipeName eventLogChunkSize) snd $ \(pipe, _) -> do
-      untilTerminatedPair term $ go stateRef pipe newParserState
+      untilTerminatedPair term $ go stateRef pipe
+        (withHeader $ \h@Header{..} leftover -> do
+          Produce (atomically $ mapM_ putEventType' eventTypes)
+           ((handle stateRef <$> (decodeEvents h)) `pushChunk` leftover))
     logProf logger "Parser thread terminated"
   return (tid, stateRef)
   where
-  go !stateRef !pipe !parserState = do
-    datum <- atomically $ readTChan pipe
-    let parserState' = pushBytes parserState datum
-        (res, parserState'') = readEvent parserState'
-    case res of
-      Item e -> do
-        -- Update eventlog state
-        atomicModifyIORef' stateRef $ \state -> (updateEventlogState e state, ())
+  handle :: IORef EventlogState -> Event -> IO ()
+  handle stateRef e = do
+    atomicModifyIORef' stateRef $ \state -> (updateEventlogState e state, ())
+    atomically $ putEvent' e
 
+  go :: IORef EventlogState -> TChan B.ByteString -> Decoder (IO ()) -> IO ()
+  go !stateRef !pipe !parserState = do
+    case parserState of
+      Produce e p -> do
+        -- Update eventlog state
+
+{-
         -- If the first item, we should pass header into channel
         mhmsg <- atomically $ do
           closed <- isClosedTBMChan eventTypeChan
@@ -71,19 +77,17 @@ redirectEventlog logger LiveProfileOpts{..} term eventTypeChan eventChan = do
               return msgs
             else return Nothing
         whenJust mhmsg $ logProf logger
+        -}
 
         -- Passing event to event channel (to the server)
         --logProf logger $ "Putting event to channel: " <> showl e
-        atomically $ putEvent' e
-      Incomplete -> return ()
-      Complete -> return ()
-      ParseError er -> logProf logger $ "parserThread error: " <> toLogStr er
-    go stateRef pipe parserState''
-
-  putHeader' :: EventParserState -> STM (Maybe LogStr)
-  putHeader' parserState = case readHeader parserState of
-    Nothing -> return . Just $ "parserThread warning: got no header, that is definitely a bug.\n"
-    Just Header{..} -> mapM_ putEventType' eventTypes >> return Nothing
+        e
+        go stateRef pipe p
+      Consume k -> do
+        datum <- atomically $ readTChan pipe
+        go stateRef pipe (k datum)
+      Done _leftover -> return ()
+      Error _lo er -> logProf logger $ "parserThread error: " <> toLogStr er
 
   putEventType' = putChannel eventTypeChan
   putEvent' = putChannel eventChan
