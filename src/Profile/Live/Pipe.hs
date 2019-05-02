@@ -8,6 +8,15 @@ import Foreign hiding (void)
 import Foreign.C
 
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
+
+import System.Socket
+import System.Socket.Protocol.Default
+import System.Socket.Type.Stream
+import System.Socket.Family.Unix
+import Control.Exception ( bracket, catch )
+import Control.Monad ( forever )
+import Control.Concurrent.Async
 
 -- | Pipe OS thread configuration
 data PipeOptions = PipeOptions {
@@ -32,7 +41,20 @@ foreign import ccall "wrapper" createPipeCallback :: PipeCallback -> IO (FunPtr 
 --
 -- Returns action which call stops the pipe and frees its memory.
 startPipe :: MonadIO m => PipeOptions -> m (IO ())
-startPipe PipeOptions{..} = liftIO $ withCString pipeName $ \pn -> do
+startPipe PipeOptions{..}  = liftIO $ do
+  s <- socket :: IO (Socket Unix Stream Default)
+  let address = case socketAddressUnixPath (BSC.pack pipeName) of
+                  Just addr -> addr
+                  Nothing -> error "INvalid unix path"
+  connect s address
+  c <- async $ forever $ receive s 100000 mempty  >>= pipeCallback
+  return (cancel c >> close s)
+
+
+
+
+
+{-
   cb <- createPipeCallback $ \ptr i -> do
     bs <- BS.packCStringLen (castPtr ptr, fromIntegral i)
     pipeCallback bs
@@ -40,3 +62,6 @@ startPipe PipeOptions{..} = liftIO $ withCString pipeName $ \pn -> do
   return $ do
     c_stopPipe
     freeHaskellFunPtr cb
+    -}
+
+

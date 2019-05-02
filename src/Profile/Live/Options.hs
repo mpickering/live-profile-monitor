@@ -33,7 +33,7 @@ defaultLiveProfileOpts = LiveProfileOpts {
 #ifdef mingw32_HOST_OS
   , eventLogPipeName = "\\\\.\\pipe\\events"
 #else
-  , eventLogPipeName = "events.pipe"
+  , eventLogPipeName = "/tmp/my-program.eventlog.sock"
 #endif
   , eventLogListenPort = 8242
   , eventChannelMaximumSize = Nothing

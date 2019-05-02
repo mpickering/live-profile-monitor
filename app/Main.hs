@@ -4,17 +4,15 @@ import Control.Exception (bracket)
 import Options.Applicative
 import System.Log.FastLogger
 import System.Process
+import Control.Monad
+import Control.Concurrent
 
 import Profile.Live
 import Profile.Live.Options
 
-optionsParser :: Parser (String, LiveProfileOpts)
-optionsParser = (,)
-  <$> strOption (
-       long "command"
-    <> help "How to call profiled application"
-    )
-  <*> profOpts
+optionsParser :: Parser (LiveProfileOpts)
+optionsParser =
+  profOpts
   where
   profOpts = LiveProfileOpts
     <$> option auto (
@@ -46,14 +44,13 @@ optionsParser = (,)
   defPort :: Word
   defPort = 8242
 
-profile :: String -> LiveProfileOpts -> IO ()
-profile comm opts = do
+profile :: LiveProfileOpts -> IO ()
+profile opts = do
   logger <- newStdoutLoggerSet defaultBufSize
-  bracket (initLiveProfile opts logger) stopLiveProfile $ const $ do
-    callCommand comm
+  bracket (initLiveProfile opts logger) (stopLiveProfile) (\_ -> forever $ threadDelay 10000)
 
 main :: IO ()
-main = execParser opts >>= uncurry profile
+main = execParser opts >>= profile
   where
     opts = info (helper <*> optionsParser)
       ( fullDesc
