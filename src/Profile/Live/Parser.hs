@@ -86,7 +86,7 @@ redirectEventlog logger LiveProfileOpts{..} term eventTypeChan eventChan = do
       Consume k -> do
         datum <- atomically $ readTChan pipe
         go stateRef pipe (k datum)
-      Done _leftover -> return ()
+      Done _leftover -> logProf logger "done"
       Error _lo er -> logProf logger $ "parserThread error: " <> toLogStr er
 
   putEventType' = putChannel eventTypeChan
