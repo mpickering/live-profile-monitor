@@ -1,11 +1,14 @@
 packages:
   ./
   ghc-events/
---  binary-serialise-cbor/
   live-profile-client/
---   live-profile-leech/
   live-profile-protocol/
-  ../ghc-eventlog-socket/
+
+source-repository-package
+    type: git
+    location: https://github.com/bgamari/ghc-eventlog-socket
+    tag: 1729f08de29197671c463d0fac6da98c7c87cc1f
+
 
 package binary-serialize-cbor
   flags: -newtime15
